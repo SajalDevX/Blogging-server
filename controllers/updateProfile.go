@@ -37,11 +37,9 @@ func UpdateProfile(c *gin.Context) {
 	imageFiles := form.File["files"]
 
 	// Validate name
-	if name == "" {
-		c.JSON(http.StatusBadRequest, gin.H{"error": "Invalid Field name"})
-		return
+	if name != "" {
+		userModel.Name = name
 	}
-	userModel.Name = name
 
 	// Validate and check email
 	if email != "" {
@@ -107,32 +105,32 @@ func isValidEmail(email string) bool {
 }
 
 func saveFile(fileHeader *multipart.FileHeader) error {
-    fmt.Println("Saving file:", fileHeader.Filename)
-    dir := filepath.Join("build", "resources", "main", "static", "profile-image")
-    fmt.Println("Directory:", dir)
+	fmt.Println("Saving file:", fileHeader.Filename)
+	dir := filepath.Join("build", "resources", "main", "static", "profile-image")
+	fmt.Println("Directory:", dir)
 
-    if err := os.MkdirAll(dir, 0755); err != nil {
-        return err
-    }
+	if err := os.MkdirAll(dir, 0755); err != nil {
+		return err
+	}
 
-    dstPath := filepath.Join(dir, fileHeader.Filename)
-    fmt.Println("File path:", dstPath)
+	dstPath := filepath.Join(dir, fileHeader.Filename)
+	fmt.Println("File path:", dstPath)
 
-    src, err := fileHeader.Open()
-    if err != nil {
-        return err
-    }
-    defer src.Close()
+	src, err := fileHeader.Open()
+	if err != nil {
+		return err
+	}
+	defer src.Close()
 
-    dst, err := os.Create(dstPath)
-    if err != nil {
-        return err
-    }
-    defer dst.Close()
+	dst, err := os.Create(dstPath)
+	if err != nil {
+		return err
+	}
+	defer dst.Close()
 
-    _, err = io.Copy(dst, src)
-    if err != nil {
-        return err
-    }
-    return nil
+	_, err = io.Copy(dst, src)
+	if err != nil {
+		return err
+	}
+	return nil
 }

@@ -1,6 +1,7 @@
 package middleware
 
 import (
+	"context"
 	"fmt"
 	"main-module/initializers"
 	"main-module/models"
@@ -21,42 +22,57 @@ func RequireAuth(c *gin.Context) {
 		c.Abort()
 		return
 	}
-	token, _ := jwt.Parse(tokenString, func(token *jwt.Token) (interface{}, error) {
+	token, err := jwt.Parse(tokenString, func(token *jwt.Token) (interface{}, error) {
 		// Ensure the signing method is HMAC
 		if _, ok := token.Method.(*jwt.SigningMethodHMAC); !ok {
 			return nil, fmt.Errorf("unexpected signing method: %v", token.Header["alg"])
 		}
 		// Return the secret for validation
-		return []byte(os.Getenv("SECRET")), nil
+		return []byte(os.Getenv("ACCESS_TOKEN_SECRET")), nil
 	})
-
-	if claims, ok := token.Claims.(jwt.MapClaims); ok && token.Valid {
-		exp, expOk := claims["exp"].(float64)
-		if !expOk || float64(time.Now().Unix()) > exp {
-			c.JSON(http.StatusUnauthorized, gin.H{
-				"error": "Token expired",
-			})
-			c.Abort()
-			return
-		}
-		var user models.User
-		sub, subOk := claims["sub"].(float64)
-		if !subOk {
-			c.JSON(http.StatusUnauthorized, gin.H{"error": "Invalid token subject"})
-			c.Abort()
-			return
-		}
-		initializers.DB.First(&user, uint(sub))
-		if user.ID == 0 {
-			c.JSON(http.StatusUnauthorized, gin.H{"error": "User not found"})
-			c.Abort()
-			return
-		}
-		c.Set("user", user)
-		c.Next()
-	} else {
-		c.JSON(http.StatusUnauthorized, gin.H{"error": "Invalid token"})
+	if err != nil || !token.Valid {
+		c.JSON(http.StatusUnauthorized, gin.H{"error": "Invalid or expired access token"})
 		c.Abort()
 		return
 	}
+	claims, ok := token.Claims.(jwt.MapClaims)
+	if !ok {
+		c.JSON(http.StatusUnauthorized, gin.H{"error": "Invalid token claims"})
+		c.Abort()
+		return
+	}
+	if exp, ok := claims["exp"].(float64); !ok || float64(time.Now().Unix()) > exp {
+		c.JSON(http.StatusUnauthorized, gin.H{"error": "Token has expired"})
+		c.Abort()
+		return
+	}
+	jti := claims["jti"].(string)
+	if isTokenRevoked(jti) { // Implement this function to check for revoked tokens
+		c.JSON(http.StatusUnauthorized, gin.H{"error": "Token has been revoked"})
+		c.Abort()
+		return
+	}
+	sub, ok := claims["sub"].(float64)
+	if !ok {
+		c.JSON(http.StatusUnauthorized, gin.H{"error": "Invalid token subject"})
+		c.Abort()
+		return
+	}
+	var user models.User
+	if err := initializers.DB.First(&user, uint(sub)).Error; err != nil || user.ID == 0 {
+		c.JSON(http.StatusUnauthorized, gin.H{"error": "User not found"})
+		c.Abort()
+		return
+	}
+	c.Set("user", user)
+	c.Next()
+}
+func isTokenRevoked(jti string) bool {
+	ctx := context.Background()
+		result,err:=initializers.RedisClient.Get(ctx,jti).Result()
+		if err!=nil{
+			if err.Error() == "redis: nil" {
+				return false
+			}		}
+		return result == "revoked"
 }

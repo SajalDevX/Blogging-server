@@ -5,7 +5,6 @@ import (
 	"main-module/models"
 	"net/http"
 	"strconv"
-
 	"github.com/gin-gonic/gin"
 )
 
@@ -20,8 +19,8 @@ func GetPost(c *gin.Context) {
 
 	var post models.Post
 
-	// Query the database for the post with the given ID, preloading related data
-	if result := initializers.DB.Preload("Tags").Preload("Category").Preload("Author").First(&post, postID); result.Error != nil {
+	if result := initializers.DB.Preload("Tags").Preload("Category").Preload("Author").First(&post, postID); 
+	result.Error != nil {
 		c.JSON(http.StatusNotFound, gin.H{"error": "Post not found"})
 		return
 	}

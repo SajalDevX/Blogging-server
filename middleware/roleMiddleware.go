@@ -18,7 +18,7 @@ func RoleMiddleware(allowedRoles ...models.UserRole) gin.HandlerFunc {
 			return
 		}
 		token, err := jwt.Parse(tokenString, func(token *jwt.Token) (interface{}, error) {
-			return []byte(os.Getenv("SECRET")), nil
+			return []byte(os.Getenv("ACCESS_TOKEN_SECRET")), nil
 		})
 		if err != nil || !token.Valid {
 			c.JSON(http.StatusUnauthorized, gin.H{"error": "Invalid token"})
